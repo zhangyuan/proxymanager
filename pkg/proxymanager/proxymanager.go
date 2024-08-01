@@ -27,8 +27,6 @@ type ProxyManager struct {
 	AppName       string
 	AppDir        string
 	Configuration *Configuration
-	window        fyne.Window
-	app           fyne.App
 	Logger        *slog.Logger
 	LoggerFile    *os.File
 	V2rayCmd      *exec.Cmd
@@ -36,10 +34,13 @@ type ProxyManager struct {
 }
 
 type Configuration struct {
-	V2rayDir      string `json:"v2ray_dir"`
-	V2rayConfFile string `json:"v2ray_file"`
-	V2rayStdOut   string `sjon:"v2ray_stdout"`
-	V2rayStdErr   string `sjon:"v2ray_stderr"`
+	V2rayDir    string `json:"v2ray_dir"`
+	V2rayStdOut string `sjon:"v2ray_stdout"`
+	V2rayStdErr string `sjon:"v2ray_stderr"`
+}
+
+func (conf *Configuration) V2rayConfFilePath() string {
+	return filepath.Join(conf.V2rayDir, "config.json")
 }
 
 func NewApp(appName string) *ProxyManager {
@@ -49,8 +50,8 @@ func NewApp(appName string) *ProxyManager {
 func (manager *ProxyManager) Close() {
 	defer func() {
 		if manager.LoggerFile != nil {
-			manager.LoggerFile.Sync()
-			manager.LoggerFile.Close()
+			_ = manager.LoggerFile.Sync()
+			_ = manager.LoggerFile.Close()
 		}
 	}()
 
@@ -140,10 +141,6 @@ func (manager *ProxyManager) LoadConfiguration() error {
 		configuration.V2rayStdOut = filepath.Join(manager.AppDir, "stdout.log")
 	}
 
-	if configuration.V2rayDir != "" && configuration.V2rayConfFile == "" {
-		configuration.V2rayConfFile = filepath.Join(configuration.V2rayDir, "config.json")
-	}
-
 	manager.Configuration = configuration
 
 	return nil
@@ -218,7 +215,9 @@ func (manager *ProxyManager) Run() {
 			{Text: "V2ray Directory", Widget: v2rayDirectoryEntry}},
 		OnSubmit: func() {
 			manager.Configuration.V2rayDir = v2rayDirectoryEntry.Text
-			manager.SaveConfiguration()
+			if err := manager.SaveConfiguration(); err != nil {
+				manager.LogErr("save configuration", err)
+			}
 			mainWindow.Hide()
 		},
 		SubmitText: "Save",
@@ -272,10 +271,10 @@ func (manager *ProxyManager) Run() {
 						refreshMenuItems()
 					}))
 				} else {
-					itemName := fmt.Sprintf("%s", proxy.NetworkServiceName)
+					itemName := proxy.NetworkServiceName
 
 					items = append(items, fyne.NewMenuItem(itemName, func() {
-						conf, err := LoadV2rayConf(manager.Configuration.V2rayConfFile)
+						conf, err := LoadV2rayConf(manager.Configuration.V2rayConfFilePath())
 						if err != nil {
 							manager.LogErr("load v2ray conf", err)
 						}
@@ -340,7 +339,9 @@ func (manager *ProxyManager) ExecV2ray() error {
 	go func() {
 		defer stdoutFile.Close()
 		defer stderrFile.Close()
-		cmd.Wait()
+		if err := cmd.Wait(); err != nil {
+			manager.LogErr("cmd Wait", err)
+		}
 	}()
 
 	manager.V2rayCmd = cmd
