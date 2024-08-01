@@ -24,3 +24,6 @@ lint:
 
 fieldalignment:
 	fieldalignment -fix ./...
+
+package:
+	fyne package -os darwin -icon assets/icon.png

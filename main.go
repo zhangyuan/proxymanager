@@ -1,7 +1,7 @@
 package main
 
 import (
-	"proxy-manager/pkg/proxymanager"
+	"proxymanager/pkg/proxymanager"
 )
 
 const AppName = "Proxy Helper"

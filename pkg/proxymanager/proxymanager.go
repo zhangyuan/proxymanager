@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"proxy-manager/pkg/networksetup"
-	"proxy-manager/pkg/v2ray"
+	"proxymanager/pkg/networksetup"
+	"proxymanager/pkg/v2ray"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"

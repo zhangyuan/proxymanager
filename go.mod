@@ -1,4 +1,4 @@
-module proxy-manager
+module proxymanager
 
 go 1.22.5
 
