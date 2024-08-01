@@ -9,6 +9,10 @@ jobs:
         os: [macos-14, macos-13]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Retrieve version
+        run: |
+          echo "PLATFORM=$(uname -m)" >> $GITHUB_OUTPUT
+        id: info
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
@@ -30,7 +34,7 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.os }}
+          name: artifacts-${{ steps.info.outputs.PLATFORM }}
           retention-days: 3
           path: |
             build
