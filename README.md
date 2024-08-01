@@ -12,16 +12,6 @@ A tool to make managing v2ray process and network proxy (socks proxy) easy.
 
 ![SystemTrayMenu](./images/SystemTrayMenu.jpg)
 
-## How to use
-
-1. Download the v2ray release from somewhere else and unzip it to a local directory.
-2. Update the configuration file `config.json` with your favorite editor.
-3. Download `proxymanager` or build it by yourself.
-4. Run `proxymanager`, and configure `V2ray Directory`.
-5. Start `v2ray` and toggle on socks proxy on the system trap menu.
-
-The persisted configuration and logs are under `~/.proxymanager/` directory.
-
 ## How to build
 
 The app is written in Go. So Go must be installed. Then run the following commands to build and package:
@@ -30,3 +20,15 @@ The app is written in Go. So Go must be installed. Then run the following comman
 make install-deps
 make package-darwin
 ```
+
+The packaged `proxmanager` is under `proxymanager.app`.
+
+## How to use
+
+1. Download the v2ray release from somewhere else and unzip it to a local directory.
+2. Update the configuration file `config.json` with your favorite editor.
+3. Move the packaged `proxymanager.app` to `/Applications` directory.
+4. Run `proxymanager`, and configure `V2ray Directory`.
+5. Start `v2ray` and toggle on socks proxy on the system trap menu.
+
+The persisted configuration and logs are under `~/.proxymanager/` directory.
