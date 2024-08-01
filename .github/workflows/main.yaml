@@ -26,10 +26,11 @@ jobs:
         run: make build
       - name: package
         run: make package
+      - run: mkdir -p build && mv proxymanager.app/ build
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
         with:
           name: artifacts-${{ matrix.os }}
           retention-days: 3
           path: |
-            proxymanager.app/
+            build
