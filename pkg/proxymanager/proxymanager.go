@@ -2,10 +2,12 @@ package proxymanager
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"proxy-manager/pkg/networksetup"
 	"proxy-manager/pkg/v2ray"
 
 	"fyne.io/fyne/v2"
@@ -16,6 +18,11 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
+type Proxy struct {
+	NetworkServiceName string
+	On                 bool
+}
+
 type ProxyManager struct {
 	AppName       string
 	AppDir        string
@@ -25,7 +32,7 @@ type ProxyManager struct {
 	Logger        *slog.Logger
 	LoggerFile    *os.File
 	V2rayCmd      *exec.Cmd
-	ProxyOn       bool
+	Proxies       []Proxy
 }
 
 type Configuration struct {
@@ -40,13 +47,30 @@ func NewApp(appName string) *ProxyManager {
 }
 
 func (manager *ProxyManager) Close() {
-	if manager.LoggerFile != nil {
-		manager.LoggerFile.Sync()
-		manager.LoggerFile.Close()
-	}
+	defer func() {
+		if manager.LoggerFile != nil {
+			manager.LoggerFile.Sync()
+			manager.LoggerFile.Close()
+		}
+	}()
+
+	manager.LogInfo("closing proxy manager")
 	if manager.V2rayCmd != nil {
-		manager.StopV2ray()
+		if err := manager.StopV2ray(); err != nil {
+			manager.LogErr("closed proxy manager", err)
+		}
 	}
+
+	for idx := range manager.Proxies {
+		proxy := &manager.Proxies[idx]
+		if err := ToggleOffSocksProxy(proxy.NetworkServiceName); err != nil {
+			manager.LogErr("toggle off socks proxy", err)
+		} else {
+			proxy.On = false
+		}
+	}
+	manager.LogInfo("closed proxy manager")
+
 }
 
 func (manager *ProxyManager) Init() error {
@@ -74,6 +98,10 @@ func (manager *ProxyManager) Init() error {
 	manager.Logger = logger
 
 	if err := manager.LoadConfiguration(); err != nil {
+		return err
+	}
+
+	if err := manager.LoadNetworkServices(); err != nil {
 		return err
 	}
 
@@ -112,13 +140,36 @@ func (manager *ProxyManager) LoadConfiguration() error {
 		configuration.V2rayStdOut = filepath.Join(manager.AppDir, "stdout.log")
 	}
 
+	if configuration.V2rayDir != "" && configuration.V2rayConfFile == "" {
+		configuration.V2rayConfFile = filepath.Join(configuration.V2rayDir, "config.json")
+	}
+
 	manager.Configuration = configuration
 
 	return nil
 }
 
-func (manager *ProxyManager) LogErr(err error) error {
+func (manager *ProxyManager) LoadNetworkServices() error {
+	networkServices, err := networksetup.ListallNetworkServices()
+	if err != nil {
+		return err
+	}
+	for _, ns := range networkServices {
+		manager.Proxies = append(manager.Proxies, Proxy{
+			NetworkServiceName: ns,
+			On:                 false,
+		})
+	}
+
 	return nil
+}
+
+func (manager *ProxyManager) LogErr(msg string, err error) {
+	manager.Logger.Error(msg, slog.Any("err", err))
+}
+
+func (manager *ProxyManager) LogInfo(msg string, args ...any) {
+	manager.Logger.Error(msg, args...)
 }
 
 func (manager *ProxyManager) ConfigurationFilePath() string {
@@ -192,42 +243,57 @@ func (manager *ProxyManager) Run() {
 			if manager.V2rayCmd == nil {
 				items = append(items, fyne.NewMenuItem("V2ray", func() {
 					if err := manager.ExecV2ray(); err != nil {
-						manager.Logger.Error("start v2ray err: %s" + err.Error())
+						manager.Logger.Error("start v2ray err: " + err.Error())
 					}
 					refreshMenuItems()
 				}))
 			} else {
 				items = append(items, fyne.NewMenuItem("✓ V2ray", func() {
 					if err := manager.StopV2ray(); err != nil {
-						manager.Logger.Error("stop v2ray err: %s" + err.Error())
+						manager.Logger.Error("stop v2ray err: " + err.Error())
 					}
 					refreshMenuItems()
 				}))
 			}
 
-			if manager.ProxyOn {
-
-			} else {
-				conf, err := LoadV2rayConf(manager.Configuration.V2rayConfFile)
-				if err != nil {
-					manager.Logger.Error("load v2ray conf: %s" + err.Error())
-				}
-
-				proxy := conf.FindSocksProxy()
-				if proxy == nil {
-					manager.Logger.Error("No socks proxy configured")
+			if len(manager.Proxies) > 0 {
+				items = append(items, fyne.NewMenuItemSeparator())
+			}
+			for idx := range manager.Proxies {
+				proxy := &manager.Proxies[idx]
+				if proxy.On {
+					itemName := fmt.Sprintf("✓ %s", proxy.NetworkServiceName)
+					items = append(items, fyne.NewMenuItem(itemName, func() {
+						if err := ToggleOffSocksProxy(proxy.NetworkServiceName); err != nil {
+							manager.LogErr("toggle off proxy error: ", err)
+						} else {
+							proxy.On = false
+						}
+						refreshMenuItems()
+					}))
 				} else {
-					if err := EnableSockProxy(proxy.Listen, proxy.Port); err != nil {
-						manager.Logger.Error("eanble proxy error: %s" + err.Error())
-					} else {
-						manager.ProxyOn = true
-					}
+					itemName := fmt.Sprintf("%s", proxy.NetworkServiceName)
+
+					items = append(items, fyne.NewMenuItem(itemName, func() {
+						conf, err := LoadV2rayConf(manager.Configuration.V2rayConfFile)
+						if err != nil {
+							manager.LogErr("load v2ray conf", err)
+						}
+
+						sockeProxy := conf.FindSocksProxy()
+						if sockeProxy == nil {
+							manager.Logger.Error("No socks proxy configured")
+						} else {
+							if err := ToggleOnSocksProxy(proxy.NetworkServiceName, sockeProxy.Listen, sockeProxy.Port); err != nil {
+								manager.LogErr("enable proxy error:", err)
+							} else {
+								proxy.On = true
+							}
+						}
+						refreshMenuItems()
+					}))
 				}
 			}
-
-			items = append(items, fyne.NewMenuItem("Proxy", func() {
-				mainWindow.Show()
-			}))
 
 			items = append(items, fyne.NewMenuItemSeparator())
 
@@ -303,6 +369,22 @@ func LoadV2rayConf(path string) (*v2ray.Configuration, error) {
 	return &conf, nil
 }
 
-func EnableSockProxy(addr string, port int) error {
+func ToggleOnSocksProxy(networkService string, domain string, port int) error {
+	if err := networksetup.SetSocksFirewallProxy(networkService, domain, port); err != nil {
+		return err
+	}
+
+	if err := networksetup.SetSocksFirewallProxyState(networkService, true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ToggleOffSocksProxy(networkService string) error {
+	if err := networksetup.SetSocksFirewallProxyState(networkService, false); err != nil {
+		return err
+	}
+
 	return nil
 }
