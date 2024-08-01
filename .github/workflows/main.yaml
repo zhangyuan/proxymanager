@@ -20,6 +20,8 @@ jobs:
         with:
           version: v1.59
           args: --timeout=3m
+      - name: install deps
+        run: make install-deps
       - name: build
         run: make build
       - name: package
