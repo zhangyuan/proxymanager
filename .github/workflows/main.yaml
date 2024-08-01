@@ -4,7 +4,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [macos-14, macos-13]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -18,15 +20,14 @@ jobs:
           version: v1.59
           args: --timeout=3m
       - name: build
-        run: make build-all
+        run: make build
       - name: package
-        run: make package-linux
-      - run: sudo apt-get install -y upx
-      - run: upx bin/proxymanager_linux-amd64
+        run: make package
       - name: Archive production artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: binary
-          retention-days: 5
+          name: artifacts
+          retention-days: 3
           path: |
-            bin/proxymanager_*
+            proxymanager
+            proxymanager.app/
