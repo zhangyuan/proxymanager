@@ -1,5 +1,6 @@
 /proxymanager
 /bin/
 /proxymanager.app
+/proxymanager*.app
 /fyne_metadata_init.go
 .DS_Store

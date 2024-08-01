@@ -27,10 +27,9 @@ jobs:
       - name: package
         run: make package
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: artifacts
           retention-days: 3
           path: |
-            proxymanager
-            proxymanager.app/
+            proxymanager*.app/
