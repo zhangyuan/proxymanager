@@ -2,10 +2,9 @@
 
 ## How to build
 
-The app is written in Go. So Go must be installed.
+The app is written in Go. So Go must be installed. Then run the following commands to build and package:
 
-## MacOS
-
-```
+```bash
+make install-deps
 make package-darwin
 ```
