@@ -4,7 +4,7 @@ import (
 	"proxymanager/pkg/proxymanager"
 )
 
-const AppName = "Proxy Helper"
+const AppName = "Proxy Manager"
 
 func main() {
 	manager := proxymanager.NewApp(AppName)

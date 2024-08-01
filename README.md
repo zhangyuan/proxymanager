@@ -6,7 +6,7 @@ A tool to make managing v2ray process and network proxy (socks proxy) easy.
 
 ### Configuration
 
-![configuration](./images/proxymanager-01.jpg)
+![configuration](./images/proxymanager-02.jpg)
 
 ### System Trap Menu
 
